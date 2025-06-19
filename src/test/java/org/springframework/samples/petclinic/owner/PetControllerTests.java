@@ -52,8 +52,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PetControllerTests {
 
 	private static final int TEST_OWNER_ID = 1;
-
 	private static final int TEST_PET_ID = 1;
+	private static final String PETS_CREATE_OR_UPDATE_FORM = "pets/createOrUpdatePetForm";
+	private static final String BIRTH_DATE_PARAM = "birthDate";
+	private static final String NAME_PARAM = "name";
+	private static final String REQUIRED_ERROR_CODE = "required";
+	private static final String PET_TYPE_HAMSTER = "hamster";
+	private static final String DEFAULT_BIRTH_DATE = "2015-02-12";
+	private static final String PETS_NEW_URL = "/owners/{ownerId}/pets/new";
+	private static final String PETS_EDIT_URL = "/owners/{ownerId}/pets/{petId}/edit";
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -65,7 +72,7 @@ class PetControllerTests {
 	void setup() {
 		PetType cat = new PetType();
 		cat.setId(3);
-		cat.setName("hamster");
+		cat.setName(PET_TYPE_HAMSTER);
 		given(this.owners.findPetTypes()).willReturn(List.of(cat));
 
 		Owner owner = new Owner();
@@ -82,18 +89,18 @@ class PetControllerTests {
 
 	@Test
 	void testInitCreationForm() throws Exception {
-		mockMvc.perform(get("/owners/{ownerId}/pets/new", TEST_OWNER_ID))
+		mockMvc.perform(get(PETS_NEW_URL, TEST_OWNER_ID))
 			.andExpect(status().isOk())
-			.andExpect(view().name("pets/createOrUpdatePetForm"))
+			.andExpect(view().name(PETS_CREATE_OR_UPDATE_FORM))
 			.andExpect(model().attributeExists("pet"));
 	}
 
 	@Test
 	void testProcessCreationFormSuccess() throws Exception {
 		mockMvc
-			.perform(post("/owners/{ownerId}/pets/new", TEST_OWNER_ID).param("name", "Betty")
-				.param("type", "hamster")
-				.param("birthDate", "2015-02-12"))
+			.perform(post(PETS_NEW_URL, TEST_OWNER_ID).param(NAME_PARAM, "Betty")
+				.param("type", PET_TYPE_HAMSTER)
+				.param(BIRTH_DATE_PARAM, DEFAULT_BIRTH_DATE))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(view().name("redirect:/owners/{ownerId}"));
 	}
@@ -104,40 +111,40 @@ class PetControllerTests {
 		@Test
 		void testProcessCreationFormWithBlankName() throws Exception {
 			mockMvc
-				.perform(post("/owners/{ownerId}/pets/new", TEST_OWNER_ID).param("name", "\t \n")
-					.param("birthDate", "2015-02-12"))
+				.perform(post(PETS_NEW_URL, TEST_OWNER_ID).param(NAME_PARAM, "\t \n")
+					.param(BIRTH_DATE_PARAM, DEFAULT_BIRTH_DATE))
 				.andExpect(model().attributeHasNoErrors("owner"))
 				.andExpect(model().attributeHasErrors("pet"))
-				.andExpect(model().attributeHasFieldErrors("pet", "name"))
-				.andExpect(model().attributeHasFieldErrorCode("pet", "name", "required"))
+				.andExpect(model().attributeHasFieldErrors("pet", NAME_PARAM))
+				.andExpect(model().attributeHasFieldErrorCode("pet", NAME_PARAM, REQUIRED_ERROR_CODE))
 				.andExpect(status().isOk())
-				.andExpect(view().name("pets/createOrUpdatePetForm"));
+				.andExpect(view().name(PETS_CREATE_OR_UPDATE_FORM));
 		}
 
 		@Test
 		void testProcessCreationFormWithDuplicateName() throws Exception {
 			mockMvc
-				.perform(post("/owners/{ownerId}/pets/new", TEST_OWNER_ID).param("name", "petty")
-					.param("birthDate", "2015-02-12"))
+				.perform(post(PETS_NEW_URL, TEST_OWNER_ID).param(NAME_PARAM, "petty")
+					.param(BIRTH_DATE_PARAM, DEFAULT_BIRTH_DATE))
 				.andExpect(model().attributeHasNoErrors("owner"))
 				.andExpect(model().attributeHasErrors("pet"))
-				.andExpect(model().attributeHasFieldErrors("pet", "name"))
-				.andExpect(model().attributeHasFieldErrorCode("pet", "name", "duplicate"))
+				.andExpect(model().attributeHasFieldErrors("pet", NAME_PARAM))
+				.andExpect(model().attributeHasFieldErrorCode("pet", NAME_PARAM, "duplicate"))
 				.andExpect(status().isOk())
-				.andExpect(view().name("pets/createOrUpdatePetForm"));
+				.andExpect(view().name(PETS_CREATE_OR_UPDATE_FORM));
 		}
 
 		@Test
 		void testProcessCreationFormWithMissingPetType() throws Exception {
 			mockMvc
-				.perform(post("/owners/{ownerId}/pets/new", TEST_OWNER_ID).param("name", "Betty")
-					.param("birthDate", "2015-02-12"))
+				.perform(post(PETS_NEW_URL, TEST_OWNER_ID).param(NAME_PARAM, "Betty")
+					.param(BIRTH_DATE_PARAM, DEFAULT_BIRTH_DATE))
 				.andExpect(model().attributeHasNoErrors("owner"))
 				.andExpect(model().attributeHasErrors("pet"))
 				.andExpect(model().attributeHasFieldErrors("pet", "type"))
-				.andExpect(model().attributeHasFieldErrorCode("pet", "type", "required"))
+				.andExpect(model().attributeHasFieldErrorCode("pet", "type", REQUIRED_ERROR_CODE))
 				.andExpect(status().isOk())
-				.andExpect(view().name("pets/createOrUpdatePetForm"));
+				.andExpect(view().name(PETS_CREATE_OR_UPDATE_FORM));
 		}
 
 		@Test
@@ -146,22 +153,22 @@ class PetControllerTests {
 			String futureBirthDate = currentDate.plusMonths(1).toString();
 
 			mockMvc
-				.perform(post("/owners/{ownerId}/pets/new", TEST_OWNER_ID).param("name", "Betty")
-					.param("birthDate", futureBirthDate))
+				.perform(post(PETS_NEW_URL, TEST_OWNER_ID).param(NAME_PARAM, "Betty")
+					.param(BIRTH_DATE_PARAM, futureBirthDate))
 				.andExpect(model().attributeHasNoErrors("owner"))
 				.andExpect(model().attributeHasErrors("pet"))
-				.andExpect(model().attributeHasFieldErrors("pet", "birthDate"))
-				.andExpect(model().attributeHasFieldErrorCode("pet", "birthDate", "typeMismatch.birthDate"))
+				.andExpect(model().attributeHasFieldErrors("pet", BIRTH_DATE_PARAM))
+				.andExpect(model().attributeHasFieldErrorCode("pet", BIRTH_DATE_PARAM, "typeMismatch.birthDate"))
 				.andExpect(status().isOk())
-				.andExpect(view().name("pets/createOrUpdatePetForm"));
+				.andExpect(view().name(PETS_CREATE_OR_UPDATE_FORM));
 		}
 
 		@Test
 		void testInitUpdateForm() throws Exception {
-			mockMvc.perform(get("/owners/{ownerId}/pets/{petId}/edit", TEST_OWNER_ID, TEST_PET_ID))
+			mockMvc.perform(get(PETS_EDIT_URL, TEST_OWNER_ID, TEST_PET_ID))
 				.andExpect(status().isOk())
 				.andExpect(model().attributeExists("pet"))
-				.andExpect(view().name("pets/createOrUpdatePetForm"));
+				.andExpect(view().name(PETS_CREATE_OR_UPDATE_FORM));
 		}
 
 	}
@@ -169,9 +176,9 @@ class PetControllerTests {
 	@Test
 	void testProcessUpdateFormSuccess() throws Exception {
 		mockMvc
-			.perform(post("/owners/{ownerId}/pets/{petId}/edit", TEST_OWNER_ID, TEST_PET_ID).param("name", "Betty")
-				.param("type", "hamster")
-				.param("birthDate", "2015-02-12"))
+			.perform(post(PETS_EDIT_URL, TEST_OWNER_ID, TEST_PET_ID).param(NAME_PARAM, "Betty")
+				.param("type", PET_TYPE_HAMSTER)
+				.param(BIRTH_DATE_PARAM, DEFAULT_BIRTH_DATE))
 			.andExpect(status().is3xxRedirection())
 			.andExpect(view().name("redirect:/owners/{ownerId}"));
 	}
@@ -182,25 +189,25 @@ class PetControllerTests {
 		@Test
 		void testProcessUpdateFormWithInvalidBirthDate() throws Exception {
 			mockMvc
-				.perform(post("/owners/{ownerId}/pets/{petId}/edit", TEST_OWNER_ID, TEST_PET_ID).param("name", " ")
-					.param("birthDate", "2015/02/12"))
+				.perform(post(PETS_EDIT_URL, TEST_OWNER_ID, TEST_PET_ID).param(NAME_PARAM, " ")
+					.param(BIRTH_DATE_PARAM, DEFAULT_BIRTH_DATE))
 				.andExpect(model().attributeHasNoErrors("owner"))
 				.andExpect(model().attributeHasErrors("pet"))
-				.andExpect(model().attributeHasFieldErrors("pet", "birthDate"))
-				.andExpect(model().attributeHasFieldErrorCode("pet", "birthDate", "typeMismatch"))
-				.andExpect(view().name("pets/createOrUpdatePetForm"));
+				.andExpect(model().attributeHasFieldErrors("pet", BIRTH_DATE_PARAM))
+				.andExpect(model().attributeHasFieldErrorCode("pet", BIRTH_DATE_PARAM, "typeMismatch"))
+				.andExpect(view().name(PETS_CREATE_OR_UPDATE_FORM));
 		}
 
 		@Test
 		void testProcessUpdateFormWithBlankName() throws Exception {
 			mockMvc
-				.perform(post("/owners/{ownerId}/pets/{petId}/edit", TEST_OWNER_ID, TEST_PET_ID).param("name", "  ")
-					.param("birthDate", "2015-02-12"))
+				.perform(post(PETS_EDIT_URL, TEST_OWNER_ID, TEST_PET_ID).param(NAME_PARAM, "  ")
+					.param(BIRTH_DATE_PARAM, DEFAULT_BIRTH_DATE))
 				.andExpect(model().attributeHasNoErrors("owner"))
 				.andExpect(model().attributeHasErrors("pet"))
-				.andExpect(model().attributeHasFieldErrors("pet", "name"))
-				.andExpect(model().attributeHasFieldErrorCode("pet", "name", "required"))
-				.andExpect(view().name("pets/createOrUpdatePetForm"));
+				.andExpect(model().attributeHasFieldErrors("pet", NAME_PARAM))
+				.andExpect(model().attributeHasFieldErrorCode("pet", NAME_PARAM, REQUIRED_ERROR_CODE))
+				.andExpect(view().name(PETS_CREATE_OR_UPDATE_FORM));
 		}
 
 	}
