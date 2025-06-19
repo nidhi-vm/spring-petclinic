@@ -47,6 +47,11 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 class OwnerController {
 
 	private static final String VIEWS_OWNER_CREATE_OR_UPDATE_FORM = "owners/createOrUpdateOwnerForm";
+	private static final String ERROR_ATTRIBUTE = "error";
+	private static final String ERROR_MESSAGE_CREATE = "There was an error in creating the owner.";
+	private static final String ERROR_MESSAGE_UPDATE = "There was an error in updating the owner.";
+	private static final String OWNER_ID_MISMATCH_MESSAGE = "Owner ID mismatch. Please try again.";
+	private static final String OWNER_NOT_FOUND_MESSAGE = "Owner not found with id: ";
 
 	private final OwnerRepository owners;
 
@@ -63,7 +68,7 @@ class OwnerController {
 	public Owner findOwner(@PathVariable(name = "ownerId", required = false) Integer ownerId) {
 		return ownerId == null ? new Owner()
 				: this.owners.findById(ownerId)
-					.orElseThrow(() -> new IllegalArgumentException("Owner not found with id: " + ownerId
+					.orElseThrow(() -> new IllegalArgumentException(OWNER_NOT_FOUND_MESSAGE + ownerId
 							+ ". Please ensure the ID is correct " + "and the owner exists in the database."));
 	}
 
@@ -75,7 +80,7 @@ class OwnerController {
 	@PostMapping("/owners/new")
 	public String processCreationForm(@Valid Owner owner, BindingResult result, RedirectAttributes redirectAttributes) {
 		if (result.hasErrors()) {
-			redirectAttributes.addFlashAttribute("error", "There was an error in creating the owner.");
+			redirectAttributes.addFlashAttribute(ERROR_ATTRIBUTE, ERROR_MESSAGE_CREATE);
 			return VIEWS_OWNER_CREATE_OR_UPDATE_FORM;
 		}
 
@@ -139,13 +144,13 @@ class OwnerController {
 	public String processUpdateOwnerForm(@Valid Owner owner, BindingResult result, @PathVariable("ownerId") int ownerId,
 			RedirectAttributes redirectAttributes) {
 		if (result.hasErrors()) {
-			redirectAttributes.addFlashAttribute("error", "There was an error in updating the owner.");
+			redirectAttributes.addFlashAttribute(ERROR_ATTRIBUTE, ERROR_MESSAGE_UPDATE);
 			return VIEWS_OWNER_CREATE_OR_UPDATE_FORM;
 		}
 
 		if (owner.getId() != ownerId) {
 			result.rejectValue("id", "mismatch", "The owner ID in the form does not match the URL.");
-			redirectAttributes.addFlashAttribute("error", "Owner ID mismatch. Please try again.");
+			redirectAttributes.addFlashAttribute(ERROR_ATTRIBUTE, OWNER_ID_MISMATCH_MESSAGE);
 			return "redirect:/owners/{ownerId}/edit";
 		}
 
@@ -165,7 +170,7 @@ class OwnerController {
 		ModelAndView mav = new ModelAndView("owners/ownerDetails");
 		Optional<Owner> optionalOwner = this.owners.findById(ownerId);
 		Owner owner = optionalOwner.orElseThrow(() -> new IllegalArgumentException(
-				"Owner not found with id: " + ownerId + ". Please ensure the ID is correct "));
+				OWNER_NOT_FOUND_MESSAGE + ownerId + ". Please ensure the ID is correct "));
 		mav.addObject(owner);
 		return mav;
 	}
