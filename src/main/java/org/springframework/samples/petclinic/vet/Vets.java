@@ -23,21 +23,21 @@ import jakarta.xml.bind.annotation.XmlRootElement;
 
 /**
  * Simple domain object representing a list of veterinarians. Mostly here to be used for
- * the 'vets' {@link org.springframework.web.servlet.view.xml.MarshallingView}.
+ * the 'vetsList' {@link org.springframework.web.servlet.view.xml.MarshallingView}.
  *
  * @author Arjen Poutsma
  */
 @XmlRootElement
 public class Vets {
 
-	private List<Vet> vets;
+	private List<Vet> vetsList;
 
 	@XmlElement
 	public List<Vet> getVetList() {
-		if (vets == null) {
-			vets = new ArrayList<>();
+		if (vetsList == null) {
+			vetsList = new ArrayList<>();
 		}
-		return vets;
+		return vetsList;
 	}
 
 }
