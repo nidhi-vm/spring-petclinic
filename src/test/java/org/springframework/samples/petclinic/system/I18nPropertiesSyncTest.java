@@ -25,28 +25,16 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class I18nPropertiesSyncTest {
 
 	private static final String I18N_DIR = "src/main/resources";
-
 	private static final String BASE_NAME = "messages";
-
 	public static final String PROPERTIES = ".properties";
-
 	private static final Pattern HTML_TEXT_LITERAL = Pattern.compile(">([^<>{}]+)<");
-
 	private static final Pattern BRACKET_ONLY = Pattern.compile("<[^>]*>\\s*[\\[\\]](?:&nbsp;)?\\s*</[^>]*>");
-
 	private static final Pattern HAS_TH_TEXT_ATTRIBUTE = Pattern.compile("th:(u)?text\\s*=\\s*\"[^\"]+\"");
 
 	@Test
 	public void checkNonInternationalizedStrings() throws IOException {
 		Path root = Paths.get("src/main");
-		List<Path> files;
-
-		try (Stream<Path> stream = Files.walk(root)) {
-			files = stream.filter(p -> p.toString().endsWith(".java") || p.toString().endsWith(".html"))
-				.filter(p -> !p.toString().contains("/test/"))
-				.filter(p -> !p.getFileName().toString().endsWith("Test.java"))
-				.toList();
-		}
+		List<Path> files = getFiles(root);
 
 		StringBuilder report = new StringBuilder();
 
@@ -54,25 +42,10 @@ public class I18nPropertiesSyncTest {
 			List<String> lines = Files.readAllLines(file);
 			for (int i = 0; i < lines.size(); i++) {
 				String line = lines.get(i).trim();
-
-				if (line.startsWith("//") || line.startsWith("@") || line.contains("log.")
-						|| line.contains("System.out"))
-					continue;
+				if (isIgnoredLine(line)) continue;
 
 				if (file.toString().endsWith(".html")) {
-					boolean hasLiteralText = HTML_TEXT_LITERAL.matcher(line).find();
-					boolean hasThTextAttribute = HAS_TH_TEXT_ATTRIBUTE.matcher(line).find();
-					boolean isBracketOnly = BRACKET_ONLY.matcher(line).find();
-
-					if (hasLiteralText && !line.contains("#{") && !hasThTextAttribute && !isBracketOnly) {
-						report.append("HTML: ")
-							.append(file)
-							.append(" Line ")
-							.append(i + 1)
-							.append(": ")
-							.append(line)
-							.append("\n");
-					}
+					checkHtmlLine(report, file, i, line);
 				}
 			}
 		}
@@ -82,24 +55,41 @@ public class I18nPropertiesSyncTest {
 		}
 	}
 
-	@Test
-	public void checkI18nPropertyFilesAreInSync() throws IOException {
-		List<Path> propertyFiles;
-		try (Stream<Path> stream = Files.walk(Paths.get(I18N_DIR))) {
-			propertyFiles = stream.filter(p -> p.getFileName().toString().startsWith(BASE_NAME))
-				.filter(p -> p.getFileName().toString().endsWith(PROPERTIES))
+	private List<Path> getFiles(Path root) throws IOException {
+		try (Stream<Path> stream = Files.walk(root)) {
+			return stream.filter(p -> p.toString().endsWith(".java") || p.toString().endsWith(".html"))
+				.filter(p -> !p.toString().contains("/test/"))
+				.filter(p -> !p.getFileName().toString().endsWith("Test.java"))
 				.toList();
 		}
+	}
+
+	private boolean isIgnoredLine(String line) {
+		return line.startsWith("//") || line.startsWith("@") || line.contains("log.") || line.contains("System.out");
+	}
+
+	private void checkHtmlLine(StringBuilder report, Path file, int lineIndex, String line) {
+		boolean hasLiteralText = HTML_TEXT_LITERAL.matcher(line).find();
+		boolean hasThTextAttribute = HAS_TH_TEXT_ATTRIBUTE.matcher(line).find();
+		boolean isBracketOnly = BRACKET_ONLY.matcher(line).find();
+
+		if (hasLiteralText && !line.contains("#{") && !hasThTextAttribute && !isBracketOnly) {
+			report.append("HTML: ")
+				.append(file)
+				.append(" Line ")
+				.append(lineIndex + 1)
+				.append(": ")
+				.append(line)
+				.append("\n");
+		}
+	}
+
+	@Test
+	public void checkI18nPropertyFilesAreInSync() throws IOException {
+		List<Path> propertyFiles = getPropertyFiles();
 
 		Map<String, Properties> localeToProps = new HashMap<>();
-
-		for (Path path : propertyFiles) {
-			Properties props = new Properties();
-			try (var reader = Files.newBufferedReader(path)) {
-				props.load(reader);
-				localeToProps.put(path.getFileName().toString(), props);
-			}
-		}
+		loadProperties(propertyFiles, localeToProps);
 
 		String baseFile = BASE_NAME + PROPERTIES;
 		Properties baseProps = localeToProps.get(baseFile);
@@ -108,15 +98,34 @@ public class I18nPropertiesSyncTest {
 			return;
 		}
 
+		checkForMissingKeys(localeToProps, baseProps, baseFile);
+	}
+
+	private List<Path> getPropertyFiles() throws IOException {
+		try (Stream<Path> stream = Files.walk(Paths.get(I18N_DIR))) {
+			return stream.filter(p -> p.getFileName().toString().startsWith(BASE_NAME))
+				.filter(p -> p.getFileName().toString().endsWith(PROPERTIES))
+				.toList();
+		}
+	}
+
+	private void loadProperties(List<Path> propertyFiles, Map<String, Properties> localeToProps) throws IOException {
+		for (Path path : propertyFiles) {
+			Properties props = new Properties();
+			try (var reader = Files.newBufferedReader(path)) {
+				props.load(reader);
+				localeToProps.put(path.getFileName().toString(), props);
+			}
+		}
+	}
+
+	private void checkForMissingKeys(Map<String, Properties> localeToProps, Properties baseProps, String baseFile) {
 		Set<String> baseKeys = baseProps.stringPropertyNames();
 		StringBuilder report = new StringBuilder();
 
 		for (Map.Entry<String, Properties> entry : localeToProps.entrySet()) {
 			String fileName = entry.getKey();
-			// We use fallback logic to include english strings, hence messages_en is not
-			// populated.
-			if (fileName.equals(baseFile) || fileName.equals("messages_en.properties"))
-				continue;
+			if (fileName.equals(baseFile) || fileName.equals("messages_en.properties")) continue;
 
 			Properties props = entry.getValue();
 			Set<String> missingKeys = new TreeSet<>(baseKeys);
@@ -132,5 +141,4 @@ public class I18nPropertiesSyncTest {
 			fail("Translation files are not in sync:\n" + report);
 		}
 	}
-
 }
